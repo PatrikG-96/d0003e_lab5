@@ -8,8 +8,6 @@ GUI.c
 
 InterruptHandler.c
 
-Joystick.c
-
 LCDDrivers.c
 
 main.c

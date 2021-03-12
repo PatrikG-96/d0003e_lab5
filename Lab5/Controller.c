@@ -13,9 +13,9 @@ void enqueue_north(Controller *self, int arg0) {
 	ASYNC(self->gui, update_north, self->queues[NORTH]);
 	if (!self->active) {
 		self->active = true;
-		manage_lights(self, 0);
+		self->traffic_lights[NORTH] = GREEN;
 	}
-	
+	manage_lights(self, 0);
 }
 
 void enqueue_south(Controller *self, int arg0) {
@@ -24,13 +24,13 @@ void enqueue_south(Controller *self, int arg0) {
 	ASYNC(self->gui, update_south, self->queues[SOUTH]);
 	if (!self->active) {
 		self->active = true;
-		manage_lights(self, 0);
+		self->traffic_lights[SOUTH] = GREEN;
 	}
-	
+	manage_lights(self, 0);
 }
 
 void swap_lights(Controller *self, int arg0) {
-	
+	self->traffic_lights[self->current_direction] = false;
 	if (self->current_direction == NORTH) {
 		self->current_direction = SOUTH;
 	}
@@ -38,6 +38,7 @@ void swap_lights(Controller *self, int arg0) {
 		self->current_direction = NORTH;
 	}
 	self->traffic_lights[self->current_direction] = TRUE;
+
 	self->cars_allowed = MAX_CARS_ON_LANE;
 
 }
@@ -83,8 +84,7 @@ void manage_lights(Controller *self, int arg0) {
 		self->output |= (1 << LIGHT_BIT_S_R);
 	}
 	
-	
-	ASYNC(self->writer, USART_write, self->output);
+	ASYNC(self->writer, set_output, self->output);
 	self->output = 0;
 }
 
@@ -95,6 +95,8 @@ void enter_lane(Controller *self, int arg0) {
 	self->cars_allowed--;
 	self->current_cars++;
 	ASYNC(self->gui, update_current, self->current_cars);
+	ASYNC(self->gui, update_north, self->queues[NORTH]);
+	ASYNC(self->gui, update_south, self->queues[SOUTH]);
 	AFTER(MSEC(CAR_PASSING_TIME), self, exit_lane, 0);
 	manage_lights(self, 0);
 }
@@ -105,5 +107,7 @@ void exit_lane(Controller *self, int arg0) {
 		ASYNC(self, swap_lights, 0);
 	}
 	ASYNC(self->gui, update_current, self->current_cars);
+	ASYNC(self->gui, update_north, self->queues[NORTH]);
+	ASYNC(self->gui, update_south, self->queues[SOUTH]);
 	manage_lights(self, 0);
 }

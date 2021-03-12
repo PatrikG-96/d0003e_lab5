@@ -41,7 +41,7 @@ typedef struct {
 	uint8_t output;
 }Controller;
 
-#define initController(gui, wr) {initObject(), gui, wr, {0,0}, {0,0} , 0, 0, 0}
+#define initController(gui, wr) {initObject(), gui, wr, {0,0}, {0,0} , 0, 0, 0, 0, 0}
 	
 void enqueue_north(Controller *self, int arg0);
 

@@ -5,6 +5,9 @@
  *  Author: shirt
  */ 
 
-void USART_write(SerialWriter *self, int arg0) {
-	UDR0 = arg0;
+#include "SerialWriter.h"
+
+void set_output(SerialWriter *self, int arg0) {
+	self->output = arg0;
+	UDR0 = self->output;
 }

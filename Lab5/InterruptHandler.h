@@ -30,7 +30,7 @@ typedef struct {
 
 #define initInterruptHandler(c) {initObject(), c}
 
-void USART_interrupt(InterruptHandler *self, int arg0);
+void parse_interrupt(InterruptHandler *self, int arg0);
 void init(InterruptHandler *self, int arg0);
 
 #endif /* INTERRUPTHANDLER_H_ */

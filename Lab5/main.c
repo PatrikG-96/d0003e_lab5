@@ -10,13 +10,16 @@
 #include "Controller.h"
 #include "InterruptHandler.h"
 #include "GUI.h"
+#include "SerialWriter.h"
 
 int main(void)
 {
+	//return 0;
+	SerialWriter wr = initSerialWriter();
 	GUI gui = initGUI();
-	Controller c = initController(&gui);
+	Controller c = initController(&gui, &wr);
     InterruptHandler i = initInterruptHandler(&c);
-    INSTALL(&i, parse_interrupt, IRQ_PCINT0);
+    INSTALL(&i, parse_interrupt, IRQ_USART0_RX);
     //INSTALL(&i, parse_interrupt, IRQ_PCINT1);
     return TINYTIMBER(&i, init, 0);
 }

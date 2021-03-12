@@ -7,7 +7,7 @@
 
 #include "InterruptHandler.h"
 
-void USART_interrupt(InterruptHandler *self, int arg0) {
+void parse_interrupt(InterruptHandler *self, int arg0) {
 	
 	uint8_t data = UDR0;
 	
@@ -32,15 +32,19 @@ void init(InterruptHandler *self, int arg0) {
 	unsigned int ubrr = MYUBRR;
 	
 	// Set BAUD rate
-	UBRR0H = (unsigned char) (ubrr>>8);
-	UBRR0L = (unsigned char) ubrr;
+	//UBRR0H = (unsigned char) (ubrr>>8);
+	//UBRR0L = (unsigned char) ubrr;
 	
 	// Enable reciever and transmitter
-	UCSR0B = (1<<RXEN0) | (1<<TXEN0);
+	//UCSR0B = (1<<RXEN0) | (1<<TXEN0);
 	
 	// Set frame format: 8 data, 1 stop bit
-	UCSR0C = ~(1<<USBS0) | (3 << UCSZ00);
-	
+	//UCSR0C = ~(1<<USBS0) | (3 << UCSZ00);
+	UBRR0H = ubrr>>8;
+	UBRR0L = ubrr;
+	UCSR0B = (1<<RXCIE0)|(1<<RXEN0)|(1<<TXEN0);
+	UCSR0C = (1<<USBS0)|(1<<UCSZ01)|(1<<UCSZ00);
 	
 	ASYNC(self->controller->gui, start_gui, 0);
+	//UDR0 = 5;
 }

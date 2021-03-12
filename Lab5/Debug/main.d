@@ -13,7 +13,8 @@ main.d main.o: .././main.c \
  .././TinyTimber.h .././Controller.h \
  c:\program\ files\ (x86)\atmel\studio\7.0\toolchain\avr8\avr8-gnu-toolchain\lib\gcc\avr\5.4.0\include\stdint-gcc.h \
  c:\program\ files\ (x86)\atmel\studio\7.0\toolchain\avr8\avr8-gnu-toolchain\lib\gcc\avr\5.4.0\include\stdbool.h \
- .././GUI.h .././LCDDrivers.h .././InterruptHandler.h .././Joystick.h
+ .././GUI.h .././LCDDrivers.h .././SerialWriter.h .././InterruptHandler.h \
+ .././Joystick.h
 
 c:\program\ files\ (x86)\atmel\studio\7.0\toolchain\avr8\avr8-gnu-toolchain\avr\include\avr\io.h:
 
@@ -48,6 +49,8 @@ c:\program\ files\ (x86)\atmel\studio\7.0\toolchain\avr8\avr8-gnu-toolchain\lib\
 .././GUI.h:
 
 .././LCDDrivers.h:
+
+.././SerialWriter.h:
 
 .././InterruptHandler.h:
 
