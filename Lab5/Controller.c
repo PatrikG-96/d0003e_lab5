@@ -47,13 +47,13 @@ void manage_lights(Controller *self, int arg0) {
 		self->active = false;
 		self->traffic_lights[NORTH] = false;
 		self->traffic_lights[SOUTH] = false;
-		//send to writer
+		ASYNC(self->writer, USART_write, 0b0101); // make argument a defined constant
 	}
 	
 	// If current queue is empty or we've allowed a specified number of cars in a row 
 	if (self->queues[self->current_direction] == 0) {
 		self->traffic_lights[self->current_direction] = false;
-		// send to writer
+		ASYNC(self->writer, USART_write, 0b0101);
 	}
 	
 	// If we let in the maximum amount of cars allowed from one direction

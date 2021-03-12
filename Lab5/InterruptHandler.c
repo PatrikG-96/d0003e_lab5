@@ -12,16 +12,16 @@ void USART_interrupt(InterruptHandler *self, int arg0) {
 	uint8_t data = UDR0;
 	
 	if ((data >> NORTH_ARRIVAL_BIT ) & 1) {
-		// car arrived at north queue
+		ASYNC(self->controller, enqueue_north, 0);
 	}
 	if ((data >> NORTH_ENTRY_BIT ) & 1) {
-		// car entering bridge
+		ASYNC(self->controller, enter_lane, 0);
 	}
 	if ((data >> SOUTH_ARRIVAL_BIT ) & 1) {
-		// car arrived at SOUTH queue
+		ASYNC(self->controller, enqueue_south, 0);
 	}
 	if ((data >> SOUTH_ENTRY_BIT) & 1) {
-		// car entering bridge
+		ASYNC(self->controller, enter_lane, 0);
 	}
 
 	
