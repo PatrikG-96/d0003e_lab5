@@ -38,6 +38,7 @@ typedef struct {
 	uint8_t cars_allowed;
 	int current_cars;
 	bool active;
+	uint8_t output;
 }Controller;
 
 #define initController(gui, wr) {initObject(), gui, wr, {0,0}, {0,0} , 0, 0, 0}

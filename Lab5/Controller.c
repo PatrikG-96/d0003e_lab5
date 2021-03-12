@@ -13,6 +13,7 @@ void enqueue_north(Controller *self, int arg0) {
 	ASYNC(self->gui, update_north, self->queues[NORTH]);
 	if (!self->active) {
 		self->active = true;
+		manage_lights(self, 0);
 	}
 	
 }
@@ -23,6 +24,7 @@ void enqueue_south(Controller *self, int arg0) {
 	ASYNC(self->gui, update_south, self->queues[SOUTH]);
 	if (!self->active) {
 		self->active = true;
+		manage_lights(self, 0);
 	}
 	
 }
@@ -47,13 +49,11 @@ void manage_lights(Controller *self, int arg0) {
 		self->active = false;
 		self->traffic_lights[NORTH] = false;
 		self->traffic_lights[SOUTH] = false;
-		ASYNC(self->writer, USART_write, 0b0101); // make argument a defined constant
 	}
 	
 	// If current queue is empty or we've allowed a specified number of cars in a row 
-	if (self->queues[self->current_direction] == 0) {
+	else if (self->queues[self->current_direction] == 0) {
 		self->traffic_lights[self->current_direction] = false;
-		ASYNC(self->writer, USART_write, 0b0101);
 	}
 	
 	// If we let in the maximum amount of cars allowed from one direction
@@ -61,7 +61,6 @@ void manage_lights(Controller *self, int arg0) {
 		// If there is a queue in the other direction, turn off the light 
 		if (self->queues[!self->current_direction] > 0) {
 			self->traffic_lights[self->current_direction] = false;
-			//send to writer
 		}
 		else {
 			// If we let in the max amount but there are no cars in the other queue, allow another car
@@ -70,8 +69,26 @@ void manage_lights(Controller *self, int arg0) {
 		}
 		
 	}
-
+	
+	if (self->traffic_lights[NORTH]) {
+		self->output |= (1 << LIGHT_BIT_N_G);
+	}
+	else {
+		self->output |= (1 << LIGHT_BIT_N_R);
+	}
+	if (self->traffic_lights[SOUTH]) {
+		self->output |= (1 << LIGHT_BIT_S_G);
+	}
+	else {
+		self->output |= (1 << LIGHT_BIT_S_R);
+	}
+	
+	
+	ASYNC(self->writer, USART_write, self->output);
+	self->output = 0;
 }
+
+
 
 void enter_lane(Controller *self, int arg0) {
 	self->queues[self->current_direction]--;
