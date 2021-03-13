@@ -17,7 +17,7 @@ typedef struct {
 	uint8_t initialized;
 }GUI;
 
-#define initGUI() {initObject()}
+#define initGUI() {initObject(), 0}
 
 void update_north(GUI *self, int arg0);
 
