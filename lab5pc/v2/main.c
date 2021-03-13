@@ -7,6 +7,7 @@
 #include <termios.h>
 #include <stdlib.h>
 #include <fcntl.h>
+#include <semaphore.h>
 
 #define COM1 "/dev/ttyS0"
 
@@ -33,6 +34,11 @@
 pthread_mutex_t mutex_tl;   // Mutex for accessing, modifying or making decisions based on light status
 pthread_mutex_t mutex_sn;   // mutex for accessing, modifying or making decisions based on queue/bridge status
 
+sem_t sem;
+
+pthread_mutex_t m_north;
+pthread_mutex_t m_south;
+
 // Contains all information neccessary for all threads, avoids global variables
 typedef struct {
     int n_queue;
@@ -48,19 +54,20 @@ typedef struct {
 
 /* Function declarations for thread usage etc */
 void *thread_read();
-void *run();
-void *enter_north();
-void *enter_south();
+void *north_car();
+void *south_car();
 void* gui();
 void handle_input();
 void serial_write();
+void unlock_north();
+void unlock_south();
 
 
 
 int main() {
 
 
-    pthread_t read_thread, run_thread, gui_thread;
+    pthread_t read_thread, gui_thread;
     State* state = (State*)malloc(sizeof(State));   // is freed when all threads have joined or when program is exited
 
     int fd = open(COM1, O_RDWR);    // file descriptor for COM1 serial port 
@@ -73,7 +80,11 @@ int main() {
     state->s_status = 0;
     state->input = 0;
     state->output = 0;
- 
+
+    pthread_mutex_init(&m_north, NULL);
+    pthread_mutex_init(&m_south, NULL);
+    pthread_mutex_init(&mutex_sn, NULL);
+    pthread_mutex_init(&mutex_tl, NULL);
 
     struct termios t;
     struct termios std;
@@ -87,18 +98,23 @@ int main() {
     cfsetispeed(&t, B9600);
     cfsetospeed(&t, B9600);
     tcsetattr(fd, TCSANOW, &t);
-    pthread_mutex_init(&mutex_sn, NULL);
-    pthread_mutex_init(&mutex_tl, NULL);
 
     system("clear");
 
+
+
+  
+
+    pthread_mutex_lock(&m_north);
+    pthread_mutex_lock(&m_south);
+
     pthread_create(&read_thread, NULL, thread_read, state);
-    pthread_create(&run_thread, NULL, run, state);
-    pthread_create(&gui_thread, NULL, gui, state);
+    //pthread_create(&run_thread, NULL, run, state);
+    //pthread_create(&gui_thread, NULL, gui, state);
 
     pthread_join(read_thread, NULL);
-    pthread_join(run_thread, NULL);
-    pthread_join(gui_thread, NULL);
+   // pthread_join(run_thread, NULL);
+    //pthread_join(gui_thread, NULL);
     
     free(state);
 }
@@ -137,44 +153,7 @@ void *gui(void* arg) {
 }
 
 
-void *run(void* arg) {
 
-    State* state = (State*)arg;
-    while(1) {
-
-        handle_input(state);
-      
-        // Mutex needed?
-       // pthread_mutex_lock(&mutex_tl);
-        int nl = state->n_status;
-        int sl = state->s_status;
-        //pthread_mutex_unlock(&mutex_tl);
-
-        // If north traffic light is green, create a new car thread
-        if(nl == GREEN) {
-            pthread_mutex_lock(&mutex_sn);
-            if (state->n_queue > 0) {
-                pthread_t new_thread;
-                pthread_create(&new_thread, NULL, enter_north, state);
-            }
-            pthread_mutex_unlock(&mutex_sn);
-        }
-        // If south traffic light is green, create a new car thread
-        else if(sl == GREEN) {
-            pthread_mutex_lock(&mutex_sn);
-            if (state->s_queue > 0) {
-                pthread_t new_thread;
-                pthread_create(&new_thread, NULL, enter_south,  state);
-            }
-            pthread_mutex_unlock(&mutex_sn);
-            
-        }
-  
-        usleep(TIME_TO_WAIT); //Makes sure we wait 1 second between each entry
-
-    }
-
-}
 
 /* Uses select() to poll stdin and COM1 serial port for reading purposes. */
 void *thread_read(void* arg) {
@@ -199,28 +178,29 @@ void *thread_read(void* arg) {
             pthread_mutex_lock(&mutex_tl);
             read(fd, &state->input, sizeof(state->input));
             pthread_mutex_unlock(&mutex_tl);
+            handle_input(state);
         }
 
 
         if (FD_ISSET(fileno(stdin), &readSet)) {
 
             fgets(buffer, sizeof(buffer), stdin);
-            
             // Depending on keyboard input, enqueue a car north or south
             switch(buffer[0]) {
                 case 'n':
-                    pthread_mutex_lock(&mutex_sn);
-                    state->n_queue++;
-                    state->output |= (1 << CAR_BIT_N_A);
-                    pthread_mutex_unlock(&mutex_sn);
-                    serial_write(state);
+                {
+                    pthread_t n_car;
+                    printf("Creating new north car thread, current queue is: %d", state->n_queue);
+                    pthread_create(&n_car, NULL, north_car, state);
+                }
+                   
                     break;
                 case 's':
-                    pthread_mutex_lock(&mutex_sn);
-                    state->s_queue++;
-                    state->output |= (1 << CAR_BIT_S_A);
-                    pthread_mutex_unlock(&mutex_sn);
-                    serial_write(state);
+                {
+                    pthread_t s_car;
+                    pthread_create(&s_car, NULL, south_car, state);
+                }
+                    
                     break;
                 case 'e':
                     free(state); //Not sure if needed since program shuts down completely, but makes sure memory is freed 
@@ -244,37 +224,89 @@ void handle_input(State *state) {
 
         // Mutex lock as it modifies traffic light states depending on AVR USART input
         pthread_mutex_lock(&mutex_tl);
+        int input = state->input;
+        int nl = state->n_status;
+        int sl = state->s_status;
+        pthread_mutex_unlock(&mutex_tl);
+        printf("Reading AVR input: %d\n", state->output);
      
-        if((state->input >> LIGHT_BIT_N_G) & 1) {
-            state->n_status = GREEN;
+        if((input >> LIGHT_BIT_N_G) & 1) {
+            if (nl != GREEN) { // Light state has changed
+                printf("Setting light to green, unlocking north light\n");
+                pthread_mutex_lock(&mutex_tl);
+                state->n_status = GREEN;
+                pthread_mutex_unlock(&mutex_tl);
+                pthread_mutex_unlock(&m_north); // Light changed from red to green, let through cars
+                //sem_post(&sem);
+            }
+           
         }
-        if((state->input >> LIGHT_BIT_N_R) & 1) {
-            state->n_status = RED;
+        if((input >> LIGHT_BIT_N_R) & 1) {
+            if (nl!= RED) {
+                printf("Setting light to red, locking north light\n");
+                pthread_mutex_lock(&mutex_tl);
+                state->n_status = RED;
+                pthread_mutex_unlock(&mutex_tl);
+                //sem_wait(&sem);
+                pthread_mutex_lock(&m_north);
+            }
         }
-        if((state->input >> LIGHT_BIT_S_G) & 1) {
-            state->s_status = GREEN;
+        if((sl >> LIGHT_BIT_S_G) & 1) {
+            if (state->s_status != GREEN) {
+                printf("Setting light to green, unlocking south light\n");
+                pthread_mutex_lock(&mutex_tl);
+                state->s_status = GREEN;
+                pthread_mutex_unlock(&mutex_tl);
+                pthread_mutex_unlock(&m_south);
+            }
         }
         if((state->input >> LIGHT_BIT_S_R) & 1) {
-            state->s_status = RED;
+            if (sl != RED) {
+                printf("Setting light to red, locking south light\n");
+                pthread_mutex_lock(&mutex_tl);
+                state->s_status = RED;
+                pthread_mutex_unlock(&mutex_tl);
+                pthread_mutex_lock(&m_south);
+            }
         }
-    
-        pthread_mutex_unlock(&mutex_tl);
+
         
 }
 
-void *enter_north(void* arg) {
+void *north_car(void* arg) {
 
     State* state = (State*)arg;
+
+
+
+    pthread_mutex_lock(&mutex_sn);
+    state->n_queue++;
+    //state->output |= (1 << CAR_BIT_N_A);
+    serial_write(state, (1 << CAR_BIT_N_A));
+    pthread_mutex_unlock(&mutex_sn);
+
+    printf("New north car is added: %d\n", state->n_queue);
+
+    pthread_mutex_lock(&m_north);
+
+    printf("North car is let through mutex lock.\n");
 
     // Car leaves north queue and enters bridge
     pthread_mutex_lock(&mutex_sn);
     state->n_queue--;
     state->n_current++;
-    state->output |= (1 << CAR_BIT_N_E);
+   // state->output |= (1 << CAR_BIT_N_E);
+    serial_write(state, (1 << CAR_BIT_N_E));
     pthread_mutex_unlock(&mutex_sn);
-
     // Signal that a car has entered bridge from the north
-    serial_write(state);
+
+    
+
+    usleep(TIME_TO_WAIT);
+
+
+    unlock_north(state);
+
 
     usleep(CAR_PASSING_TIME); // it takes 5 seconds to pass the bridge
 
@@ -286,19 +318,40 @@ void *enter_north(void* arg) {
 }
 
 
-void *enter_south(void* arg) {
+void *south_car(void* arg) {
 
     State* state = (State*)arg;
+
+
+    pthread_mutex_lock(&mutex_sn);
+    state->s_queue++;
+    //state->output |= (1 << CAR_BIT_S_A);
+    serial_write(state, (1 << CAR_BIT_S_A));
+    pthread_mutex_unlock(&mutex_sn);
+
+
+    printf("New south car is added: %d \n", state->s_queue);
+
+    
+
+    pthread_mutex_lock(&m_south);
+ 
 
     // Car leaves south queue and enters bridge
     pthread_mutex_lock(&mutex_sn);
     state->s_queue--;
     state->s_current++;
-    state->output |= (1 << CAR_BIT_S_E);
+   // state->output |= (1 << CAR_BIT_S_E);
+    serial_write(state, (1 << CAR_BIT_S_E));
     pthread_mutex_unlock(&mutex_sn);
-
     // Signal that a car has entered bridge from the south
-    serial_write(state);
+
+
+
+    usleep(TIME_TO_WAIT);
+
+
+    unlock_south(state);
  
     usleep(CAR_PASSING_TIME); // it takes 5 seconds to pass the bridge
 
@@ -309,13 +362,28 @@ void *enter_south(void* arg) {
 
 }
 
-void serial_write(State *state) {
+void serial_write(State *state, int output) {
 
     //Take mutex to make sure output isn't modified during writing.
-    pthread_mutex_lock(&mutex_sn);
-    write(state->fd, &state->output, sizeof(state->output));
-    state->output = 0b0000;
-    pthread_mutex_unlock(&mutex_sn);
+    //pthread_mutex_lock(&mutex_sn);
+    //printf("Writing to AVR: %d\n", output);
+    write(state->fd, &output, sizeof(output));
+    //pthread_mutex_unlock(&mutex_sn);
+}
 
 
+
+void unlock_north(State *state) {
+    if (state->n_status == GREEN) {
+        //printf("UNLOCKING NORTH");
+        pthread_mutex_unlock(&m_north);
+        
+    }
+}
+
+void unlock_south(State* state) {
+    if (state->s_status == GREEN) {
+        //printf("UNLOCKING SOUTH");
+        pthread_mutex_unlock(&m_south);
+    }
 }
