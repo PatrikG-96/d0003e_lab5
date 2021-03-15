@@ -1,10 +1,3 @@
-/*
- * GUI.h
- *
- * Created: 2021-03-11 00:35:35
- *  Author: shirt
- */ 
-
 
 #ifndef GUI_H_
 #define GUI_H_

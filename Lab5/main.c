@@ -20,7 +20,6 @@ int main(void)
 	Controller c = initController(&gui, &wr);
     InterruptHandler i = initInterruptHandler(&c);
     INSTALL(&i, parse_interrupt, IRQ_USART0_RX);
-    //INSTALL(&i, parse_interrupt, IRQ_PCINT1);
     return TINYTIMBER(&i, init, 0);
 }
 

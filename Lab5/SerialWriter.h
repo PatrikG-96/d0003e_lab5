@@ -10,10 +10,10 @@
 #define SERIALWRITER_H_
 
 
-#define LIGHT_BIT_N_G 0
-#define LIGHT_BIT_N_R 1
-#define LIGHT_BIT_S_G 2
-#define LIGHT_BIT_S_R 3
+#define NORTH_GREEN 0
+#define NORTH_RED 1
+#define SOUTH_GREEN 2
+#define SOUTH_RED 3
 
 
 #include <avr/io.h>
@@ -21,11 +21,11 @@
 
 typedef struct {
 	Object super;
-	int output;
+	uint8_t output;
 }SerialWriter;
 
 #define initSerialWriter() {initObject(), 0}
 
-void set_output(SerialWriter *self, int arg0);
+void usart_write(SerialWriter *self, int arg0);
 
 #endif /* SERIALWRITER_H_ */

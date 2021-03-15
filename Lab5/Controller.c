@@ -9,105 +9,155 @@
 
 void enqueue_north(Controller *self, int arg0) {
 
-	self->queues[NORTH]++;
+	self->queues[NORTH]++;	// car is added to north queue
 	ASYNC(self->gui, update_north, self->queues[NORTH]);
-	if (!self->active) {
+	// If controller isn't active, both lights are red and bridge is empty, start it up again
+	if(!self->active) {
 		self->active = true;
-		self->traffic_lights[NORTH] = GREEN;
+		self->lights[NORTH] = GREEN;
+		self->cars_allowed = MAX_CARS_ON_LANE;
+		self->curr_dir = NORTH;
+		manage_lights(self, 0);
 	}
-	manage_lights(self, 0);
+	
 }
 
 void enqueue_south(Controller *self, int arg0) {
 
 	self->queues[SOUTH]++;
 	ASYNC(self->gui, update_south, self->queues[SOUTH]);
-	if (!self->active) {
+	if(!self->active) {
 		self->active = true;
-		self->traffic_lights[SOUTH] = GREEN;
+		self->lights[SOUTH] = GREEN;
+		self->cars_allowed = MAX_CARS_ON_LANE;
+		self->curr_dir = SOUTH;
+		manage_lights(self, 0);
 	}
-	manage_lights(self, 0);
+	
+	
+	
 }
 
-void swap_lights(Controller *self, int arg0) {
-	self->traffic_lights[self->current_direction] = false;
-	if (self->current_direction == NORTH) {
-		self->current_direction = SOUTH;
-	}
-	else {
-		self->current_direction = NORTH;
-	}
-	self->traffic_lights[self->current_direction] = TRUE;
 
-	self->cars_allowed = MAX_CARS_ON_LANE;
-
+void empty_bridge(Controller *self, int arg0) {
+	// If bridge is empty
+	if(self->current_cars == 0) {
+		
+		// If queue in opposite direction isn't empty
+		if(self->queues[!self->curr_dir] > 0) {
+			self->curr_dir = !self->curr_dir;			// Swap direction
+			self->lights[self->curr_dir] = GREEN;		// Turn on light
+			self->cars_allowed = MAX_CARS_ON_LANE;		// Reset starvation counter
+		}
+		
+	}
+	manage_lights(self, 0);
 }
 
 void manage_lights(Controller *self, int arg0) {
 	
-	// If both queues are empty
-	if (self->queues[NORTH]==0 && self->queues[SOUTH] == 0) {
-		self->active = false;
-		self->traffic_lights[NORTH] = false;
-		self->traffic_lights[SOUTH] = false;
-	}
 	
-	// If current queue is empty or we've allowed a specified number of cars in a row 
-	else if (self->queues[self->current_direction] == 0) {
-		self->traffic_lights[self->current_direction] = false;
-	}
+	/***********************/
+	/* Empty current queue */
+	/***********************/
 	
-	// If we let in the maximum amount of cars allowed from one direction
-	if (self->cars_allowed == 0) {
-		// If there is a queue in the other direction, turn off the light 
-		if (self->queues[!self->current_direction] > 0) {
-			self->traffic_lights[self->current_direction] = false;
+	// If current queue is empty
+	if (self->queues[self->curr_dir] == 0) {
+		
+		if(self->queues[!self->curr_dir] > 0) {
+			self->lights[self->curr_dir] = RED;	
 		}
-		else {
-			// If we let in the max amount but there are no cars in the other queue, allow another car
-			self->cars_allowed++;
-			// When we let in another car, cars_allowed will be 0 again, so if there's a queue in the other direction then, we turn off light
+		
+		
+		//If queue in opposite direction is empty and no cars are on the bridge
+		if(self->queues[!self->curr_dir] == 0 && self->current_cars == 0) {
+			self->lights[NORTH] = RED;
+			self->lights[SOUTH] = RED;
+			self->active = false;				// deactivate
 		}
 		
 	}
 	
-	if (self->traffic_lights[NORTH]) {
-		self->output |= (1 << LIGHT_BIT_N_G);
-	}
-	else {
-		self->output |= (1 << LIGHT_BIT_N_R);
-	}
-	if (self->traffic_lights[SOUTH]) {
-		self->output |= (1 << LIGHT_BIT_S_G);
-	}
-	else {
-		self->output |= (1 << LIGHT_BIT_S_R);
-	}
+
+	/********************/
+	/* Starvation logic */
+	/********************/
 	
-	ASYNC(self->writer, set_output, self->output);
-	self->output = 0;
+	// If we have allowed the maximum cars allowed to avoid starvation
+	if(self->cars_allowed == 0) {
+		
+		// If queue from opposite direction is empty
+		if(self->queues[!self->curr_dir] == 0) {
+			self->cars_allowed ++;						// Allow another car from this direction
+		}
+		// If queue from opposite direction is not empty
+		else {
+			self->lights[self->curr_dir] = RED;			// Set this light to red
+		}
+	}	
+		
+	send_lightstatus(self, 0);
+	
+	
 }
 
 
 
-void enter_lane(Controller *self, int arg0) {
-	self->queues[self->current_direction]--;
+void entry_north(Controller *self, int arg0) {
+	
+	self->queues[NORTH]--;	// dequeue car
+	self->cars_allowed--;	// decrement starvation counter
+	self->current_cars++;	// new car on bridge
+	// Update relevant parts of the gui
+	ASYNC(self->gui, update_current, self->current_cars);
+	ASYNC(self->gui, update_north, self->queues[NORTH]);
+	
+	// After a set amount of time, 
+	AFTER(MSEC(CAR_PASSING_TIME), self, exit_bridge, 0);
+	manage_lights(self, 0);
+}
+
+
+void entry_south(Controller *self, int arg0) {
+	
+	self->queues[SOUTH]--;	
 	self->cars_allowed--;
 	self->current_cars++;
 	ASYNC(self->gui, update_current, self->current_cars);
-	ASYNC(self->gui, update_north, self->queues[NORTH]);
 	ASYNC(self->gui, update_south, self->queues[SOUTH]);
-	AFTER(MSEC(CAR_PASSING_TIME), self, exit_lane, 0);
+	
+	AFTER(MSEC(CAR_PASSING_TIME), self, exit_bridge, 0);
 	manage_lights(self, 0);
 }
 
-void exit_lane(Controller *self, int arg0) {
-	self->current_cars--;
-	if (self->current_cars == 0) {
-		ASYNC(self, swap_lights, 0);
-	}
+
+void exit_bridge(Controller *self, int arg0) {
+	self->current_cars--;	// a car has left the bridge
+
 	ASYNC(self->gui, update_current, self->current_cars);
-	ASYNC(self->gui, update_north, self->queues[NORTH]);
-	ASYNC(self->gui, update_south, self->queues[SOUTH]);
-	manage_lights(self, 0);
+	if (self->current_cars == 0) {
+		empty_bridge(self, 0);
+	}
 }
+
+void send_lightstatus(Controller *self, int arg0) {
+		
+		// Form output according to standard given
+		if (self->lights[NORTH] == GREEN) {
+			self->output |= (1<<NORTH_GREEN);
+		}
+		else {
+			self->output |= (1<<NORTH_RED);
+		}
+		if (self->lights[SOUTH] == GREEN) {
+			self->output |= (1<<SOUTH_GREEN);
+		}
+		else {
+			self->output |= (1<<SOUTH_RED);
+		}
+		
+		// Send output to serial writer and write to port
+		ASYNC(self->writer, usart_write, self->output);
+		self->output = 0;	// reset output
+}
+
