@@ -15,7 +15,7 @@ void enqueue_north(Controller *self, int arg0) {
 	if(!self->active) {
 		self->active = true;
 		self->lights[NORTH] = GREEN;
-		self->cars_allowed = MAX_CARS_ON_LANE;
+		self->cars_allowed = MAX_CARS_ON_BRIDGE;
 		self->curr_dir = NORTH;
 		manage_lights(self, 0);
 	}
@@ -29,12 +29,10 @@ void enqueue_south(Controller *self, int arg0) {
 	if(!self->active) {
 		self->active = true;
 		self->lights[SOUTH] = GREEN;
-		self->cars_allowed = MAX_CARS_ON_LANE;
+		self->cars_allowed = MAX_CARS_ON_BRIDGE;
 		self->curr_dir = SOUTH;
 		manage_lights(self, 0);
 	}
-	
-	
 	
 }
 
@@ -47,11 +45,11 @@ void empty_bridge(Controller *self, int arg0) {
 		if(self->queues[!self->curr_dir] > 0) {
 			self->curr_dir = !self->curr_dir;			// Swap direction
 			self->lights[self->curr_dir] = GREEN;		// Turn on light
-			self->cars_allowed = MAX_CARS_ON_LANE;		// Reset starvation counter
+			self->cars_allowed = MAX_CARS_ON_BRIDGE;		// Reset starvation counter
 		}
 		
 	}
-	manage_lights(self, 0);
+	SEND(MSEC(NEXT_CAR_TIME), MSEC(NEXT_CAR_TIME+50), self, manage_lights, 0);
 }
 
 void manage_lights(Controller *self, int arg0) {
@@ -64,8 +62,9 @@ void manage_lights(Controller *self, int arg0) {
 	// If current queue is empty
 	if (self->queues[self->curr_dir] == 0) {
 		
+		// If the other queue isn't empty
 		if(self->queues[!self->curr_dir] > 0) {
-			self->lights[self->curr_dir] = RED;	
+			self->lights[self->curr_dir] = RED;		// Simply to avoid 	
 		}
 		
 		
@@ -113,8 +112,10 @@ void entry_north(Controller *self, int arg0) {
 	ASYNC(self->gui, update_north, self->queues[NORTH]);
 	
 	// After a set amount of time, 
-	AFTER(MSEC(CAR_PASSING_TIME), self, exit_bridge, 0);
-	manage_lights(self, 0);
+	SEND(MSEC(NEXT_CAR_TIME), MSEC(NEXT_CAR_TIME+TIMING_WINDOW), self, manage_lights, 0);
+	SEND(MSEC(CAR_PASSING_TIME), MSEC(CAR_PASSING_TIME+TIMING_WINDOW), self, exit_bridge, 0);
+	//AFTER(MSEC(CAR_PASSING_TIME), self, exit_bridge, 0);
+	//manage_lights(self, 0);
 }
 
 
@@ -126,8 +127,10 @@ void entry_south(Controller *self, int arg0) {
 	ASYNC(self->gui, update_current, self->current_cars);
 	ASYNC(self->gui, update_south, self->queues[SOUTH]);
 	
-	AFTER(MSEC(CAR_PASSING_TIME), self, exit_bridge, 0);
-	manage_lights(self, 0);
+	SEND(MSEC(NEXT_CAR_TIME), MSEC(NEXT_CAR_TIME+TIMING_WINDOW), self, manage_lights, 0);
+	SEND(MSEC(CAR_PASSING_TIME), MSEC(CAR_PASSING_TIME+TIMING_WINDOW), self, exit_bridge, 0);
+	//AFTER(MSEC(CAR_PASSING_TIME), self, exit_bridge, 0);
+	//manage_lights(self, 0);
 }
 
 

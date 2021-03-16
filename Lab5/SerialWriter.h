@@ -1,10 +1,3 @@
-/*
- * SerialWriter.h
- *
- * Created: 2021-03-09 14:46:06
- *  Author: shirt
- */ 
-
 
 #ifndef SERIALWRITER_H_
 #define SERIALWRITER_H_

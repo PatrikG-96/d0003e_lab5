@@ -1,9 +1,4 @@
-/*
- * LCDDrivers.h
- *
- * Created: 2021-02-03 10:27:55
- *  Author: shirt
- */ 
+
 #include <stdint-gcc.h>
 
 void initLCD();

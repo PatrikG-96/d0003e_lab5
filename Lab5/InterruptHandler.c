@@ -5,6 +5,7 @@ void parse_interrupt(InterruptHandler *self, int arg0) {
 	
 	
 	/* Reads from USART port and interprets input according to standards in lab specs*/
+	while ( !(UCSR0A & (1 << RXC0)) );
 	uint8_t data = UDR0;
 	
 	if ((data >> NORTH_ARRIVAL_BIT ) & 1) {

@@ -10,7 +10,6 @@
 #define INTERRUPTHANDLER_H_
 
 #include "TinyTimber.h"
-#include "Joystick.h"
 #include "Controller.h"
 #include <avr/io.h>
 

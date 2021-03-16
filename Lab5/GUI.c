@@ -1,9 +1,4 @@
-/*
- * GUI.c
- *
- * Created: 2021-03-11 00:35:11
- *  Author: shirt
- */ 
+
 #include "GUI.h"
 
 /* Print north queue at positions 0 and 1 */

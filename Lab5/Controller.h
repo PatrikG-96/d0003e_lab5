@@ -4,11 +4,10 @@
 
 #define NORTH 0
 #define SOUTH 1
-#define MAX_CARS_ON_LANE 5
+#define MAX_CARS_ON_BRIDGE 5
 #define CAR_PASSING_TIME 5000
 #define NEXT_CAR_TIME 1000
-#define TRUE 1
-#define FALSE 0
+#define TIMING_WINDOW 50
 #define RED 0
 #define GREEN 1
 
@@ -29,12 +28,11 @@ typedef struct {
 	int current_cars;
 	uint8_t cars_allowed;
 	uint8_t curr_dir;
-	bool should_swap;
 	bool active;
 	uint8_t output;
 }Controller;
 
-#define initController(gui, wr) {initObject(), gui, wr, {0,0}, {0,0}, 0, MAX_CARS_ON_LANE, 0, 0, 0, 0}
+#define initController(gui, wr) {initObject(), gui, wr, {0,0}, {0,0}, 0, MAX_CARS_ON_BRIDGE, 0, 0, 0}
 	
 void empty_bridge(Controller *self, int arg0);	
 	
